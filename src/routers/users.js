@@ -1,23 +1,34 @@
 const express=require('express')
+const { Mongoose } = require('mongoose')
 //const { findByIdAndUpdate } = require('../models/tasks')
-const Task = require('../models/tasks')
+const User = require('../models/users')
 const router=new express.Router()
 
-router.post('/tasks',async (req,res)=>{
 
-    const tasks=await new Task(req.body)
+router.post('/users',async (req,res)=>{ 
+
+    const users=await new User(req.body)
     try{
-     await tasks.save()
-     res.send(tasks)
+     await users.save()
+     res.status(201).send(users)
     }catch(e){
-        res.status(400).send(error)
+        res.status(400).send(e)
     }
+    })   
+    router.post('/users/login', async (req, res) => {
+        try {
+            const user = await User.findByCredentials(req.body.email, req.body.password)
+            res.send(user)
+        } catch (e) {
+            res.status(400).send('You are an imposter')
+        }
     })
-    
-    router.get('/tasks',async (req,res)=>{
+
+
+router.get('/users',async (req,res)=>{
         
        try{
-       const user=await Task.find({})
+       const user=await User.find({})
         res.send(user)
        } catch(e){
             res.status(500).send(e)
@@ -25,12 +36,12 @@ router.post('/tasks',async (req,res)=>{
     
     })
     
-    router.get('/tasks/:id',async ( req,res)=>{
+    router.get('/users/:id',async ( req,res)=>{
     
         const _id= req.params.id
     try{
        
-        const user=await Task.findById(_id)
+        const user=await User.findById(_id)
         if(!user)
         {
             return res.status(404).send()
@@ -41,10 +52,10 @@ router.post('/tasks',async (req,res)=>{
     }
     })
     
-    router.patch('/tasks/:id',async(req,res)=>{
+    router.patch('/users/:id',async(req,res)=>{
     //    const _id=req.params.id
         const updates=Object.keys(req.body)
-        const allow=['description','completed']
+        const allow=['name','email','age','password']
         const isvalid=updates.every((x)=>allow.includes(x))
     
         if(!isvalid)
@@ -57,7 +68,7 @@ router.post('/tasks',async (req,res)=>{
         try{
             //const user=await Task.findByIdAndUpdate(req.params.id,req.body,{new:true,runValidators:true})
             
-            const user=await Task.findById(req.params.id)
+            const user=await User.findById(req.params.id)
             updates.forEach((update)=> user[update]=req.body[update])
             
             await user.save()
@@ -73,10 +84,10 @@ router.post('/tasks',async (req,res)=>{
     
     })
     
-    router.delete('/tasks/:id',async(req,res)=>{
+    router.delete('/users/:id',async(req,res)=>{
     
         try{
-            const user=await Task.findByIdAndDelete(req.params.id)
+            const user=await User.findByIdAndDelete(req.params.id)
             if(!user)
             {
                 return res.status(404).send()
