@@ -2,41 +2,68 @@ const express=require('express')
 const { Mongoose } = require('mongoose')
 //const { findByIdAndUpdate } = require('../models/tasks')
 const User = require('../models/users')
+const auth=require('../middleware/auth.js')
 const router=new express.Router()
-
 
 router.post('/users',async (req,res)=>{ 
 
     const users=await new User(req.body)
+    const token=await users.authTokenGenerator()
+   
     try{
-     await users.save()
-     res.status(201).send(users)
+        await users.save()
+     res.status(201).send({users,token})
     }catch(e){
         res.status(400).send(e)
     }
     })   
-    router.post('/users/login', async (req, res) => {
+
+router.post('/users/login', async (req, res) => {
         try {
             const user = await User.findByCredentials(req.body.email, req.body.password)
-            res.send(user)
+            const token=await user.authTokenGenerator()
+
+            res.send({user,token})
         } catch (e) {
             res.status(400).send('You are an imposter')
         }
     })
 
 
-router.get('/users',async (req,res)=>{
-        
-       try{
-       const user=await User.find({})
-        res.send(user)
-       } catch(e){
-            res.status(500).send(e)
-       }
+router.get('/users/me',auth,async (req,res)=>{
+    
+    res.send(req.user)
     
     })
+
+
+ router.post('/users/logout',auth,async(req,res)=>{
+     try{
+       req.user.tokens=req.user.tokens.filter((token)=>{
+           return token.token!==req.token
+       })
+       await req.user.save()
+        res.send()
+
+
+     }catch(e){
+res.status(500).send()
+     }
+ })   
     
-    router.get('/users/:id',async ( req,res)=>{
+ router.post('/users/logoutall',auth,async(req,res)=>{
+    try{
+      req.user.tokens=[]
+      await req.user.save()
+       res.send()
+
+
+    }catch(e){
+res.status(500).send()
+    }
+}) 
+
+router.get('/users/:id',async ( req,res)=>{
     
         const _id= req.params.id
     try{
@@ -52,7 +79,7 @@ router.get('/users',async (req,res)=>{
     }
     })
     
-    router.patch('/users/:id',async(req,res)=>{
+router.patch('/users/me',auth,async(req,res)=>{
     //    const _id=req.params.id
         const updates=Object.keys(req.body)
         const allow=['name','email','age','password']
@@ -68,7 +95,7 @@ router.get('/users',async (req,res)=>{
         try{
             //const user=await Task.findByIdAndUpdate(req.params.id,req.body,{new:true,runValidators:true})
             
-            const user=await User.findById(req.params.id)
+            const user=req.user
             updates.forEach((update)=> user[update]=req.body[update])
             
             await user.save()
@@ -84,15 +111,11 @@ router.get('/users',async (req,res)=>{
     
     })
     
-    router.delete('/users/:id',async(req,res)=>{
+router.delete('/users/me',auth , async(req,res)=>{
     
         try{
-            const user=await User.findByIdAndDelete(req.params.id)
-            if(!user)
-            {
-                return res.status(404).send()
-            }
-            res.send(user)
+           await req.user.remove() 
+            res.send(req.user)
         }catch(e){
             res.status(500).send(e)
         }

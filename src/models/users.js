@@ -1,7 +1,8 @@
 const mongoose=require('mongoose')
 const validator=require('validator')
 const bcrypt=require('bcryptjs')
-
+const jwt=require('jsonwebtoken')
+const task=require('./tasks.js')
 
 const userSchema= new mongoose.Schema({
     name: {
@@ -40,7 +41,22 @@ const userSchema= new mongoose.Schema({
             if(value.includes('password'))
             throw new Error('Invalid Password')
         }
-    }
+    },
+    tokens:[{
+        token:{
+            type: String,
+            required: true
+        }
+    }]
+
+
+
+})
+
+userSchema.virtual('tasks',{
+    ref:'Task',
+    localField:'_id',
+    foreignField: 'owner'
 })
 
 // userSchema.statics.findByCredentials=async (email, password)=>{
@@ -56,6 +72,25 @@ const userSchema= new mongoose.Schema({
 // return user
 
 // }
+
+userSchema.methods.toJSON=function(){
+const user=this
+const userObject=user.toObject()
+delete userObject.password
+delete userObject.tokens
+
+return userObject
+}
+
+userSchema.methods.authTokenGenerator=async function(){
+    const user=this
+    const token=jwt.sign({ _id:user._id.toString()},'NodeJSpro')
+    user.tokens=user.tokens.concat({token: token})
+    await user.save()
+
+
+    return token
+}
 
 userSchema.statics.findByCredentials = async (e,p) => {
     const user = await User.findOne({ email:e })
@@ -85,6 +120,12 @@ if(user.isModified('password'))
 
 console.log('Before')
 next()//end the middleware
+})
+
+userSchema.pre('remove',async function(next){
+    const user=this
+    await task.deleteMany({owner: user._id})
+    next()
 })
 
 const User = mongoose.model('User', userSchema)
